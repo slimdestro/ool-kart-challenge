@@ -1,10 +1,12 @@
-# 💡 Technical Overview: High-Performance Coupon Validation
+# 💡 Core feature: Coupon validation
 
 The **OOL API** is engineered for **high-volume, low-latency coupon validation**, primarily served through the **rate-limited `/api/order`** endpoint.
 
 ---
 
-
+```sh
+ool-server.exe -f1 coupons/couponbase1.gz -f2 coupons/couponbase2.gz -f3 coupons/couponbase3.gz -port 8080
+```
 ### **1. Coupon validation Memory Optimization (This seems Core Challenge of this test)**
 
 **Problem:**
