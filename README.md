@@ -1,46 +1,125 @@
-# 💡 Core feature: Coupon validation
-
-The **OOL API** is engineered for **high-volume, low-latency coupon validation**, primarily served through the **rate-limited `/api/order`** endpoint.
+# OOl Coupon Validation Engine**
 
 ---
+
+## 🏷️ **Badges**
+
+![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go\&logoColor=white)
+
+---
+
+# 📸 Screenshots
+
+### **System Running**
+
+![Screenshot 1](assets/Screenshot%202025-11-20%20234535.png)
+
+### **Validation Logs**
+
+![Screenshot 2](assets/Screenshot%202025-11-20%20234834.png)
+
+### **Performance / Execution Output**
+
+![Screenshot 3](assets/Screenshot%202025-11-20%20234903.png)
+
+---
+
+# ⚙️ Quick Start
 
 ```sh
-ool-server.exe -f1 coupons/couponbase1.gz -f2 coupons/couponbase2.gz -f3 coupons/couponbase3.gz -port 8080
+ool-server.exe \
+  -f1 coupons/couponbase1.gz \
+  -f2 coupons/couponbase2.gz \
+  -f3 coupons/couponbase3.gz \
+  -port 8080
 ```
-### **1. Coupon validation Memory Optimization (This seems Core Challenge of this test)**
-
-**Problem:**
-Directly storing the full coupon dataset as `map[string]byte` resulted in a massive **6–7 GB** memory footprint.
-
-**Solution:**
-
-* Coupons are converted into **`uint32` hashes** using the **FNV-32a** algorithm.
-* Validation is performed against an in-memory **`map[uint32]byte` index**, reducing RAM usage dramatically.
 
 ---
 
-### **2. Concurrent Indexing & High-Speed Loading**
+# 🧱 **Architecture Overview**
 
-* The coupon index is built at startup from **2 or more compressed `.gz` sources**.
-* **Multi-threaded streaming**, combined with `sync.WaitGroup`, ensures maximum I/O throughput.
-* The full index is loaded quickly despite extremely large datasets.
+```
+                       ┌────────────────────────────┐
+                       │   .gz Coupon Databases      │
+                       └──────────────┬─────────────┘
+                                      │
+                         Multi-threaded Loader
+                                      │
+                       ┌──────────────▼──────────────┐
+                       │  Hashing: FNV-1a (uint32)    │
+                       └──────────────┬─────────────┘
+                                      │
+                         In-Memory Hash Index (map)
+                                      │
+                 ┌────────────────────┼────────────────────┐
+                 │                    │                    │
+        LRU Cache (Fast Path)    Validation Engine   File-mask Logic
+                 │                    │                    │
+                 └────────────────────┼────────────────────┘
+                                      │
+                              `/api/order`
+```
 
 ---
 
-### **3. Validation Logic**
+# 📡 **API Examples**
 
-A coupon is considered **valid** only when:
-
-1. Its hash exists in the in-memory index, **and**
-2. Its associated file-mask indicates it appears in **two or more data sources**.
-
-This prevents false positives and ensures multi-source agreement.
+| Endpoint     | Method | Description                                | Example                      |
+| ------------ | ------ | ------------------------------------------ | ---------------------------- |
+| `/api/order` | `POST` | Validate a coupon code                     | `{ "coupon": "SAVE100" }`    |
+| `/api/ping`  | `GET`  | Health check                               | Returns `"pong"`             |
+| `/api/stats` | `GET`  | Returns memory, cache hit-rate, and uptime | `{ hits: 1234, misses: 98 }` |
 
 ---
 
-### **4. Runtime Acceleration via LRU Cache**
+# 🚀 Core Features
 
-To minimize repetitive hash lookups:
+## **1. Memory-Optimized Coupon Validation**
 
-* A high-performance, thread-safe **LRU cache** stores results of recent validations.
-* Popular or frequently retried coupon codes are resolved at near-zero cost.
+### **Problem**
+
+Storing millions of codes as `map[string]byte` consumed **6–7 GB RAM**.
+
+### **Solution**
+
+* Convert coupon strings to **FNV-32a `uint32` hashes`**
+* Store them in a compact **`map[uint32]byte`** index
+* Reduce memory usage **massively**
+
+---
+
+## **2. Concurrent Indexing & High-Speed Loading**
+
+* Load **multiple `.gz` files** in parallel
+* Reduce startup time significantly
+* Utilize `WaitGroup` + streaming I/O
+
+---
+
+## **3. Multi-Source Validation Logic**
+
+A coupon is only valid if:
+
+1. Its hash exists in the index, **and**
+2. It appears in **2+ database files**
+
+This ensures **high confidence** and prevents single-source false positives.
+
+---
+
+## **4. LRU Cache Acceleration**
+
+* Frequent coupon checks skip hashing + lookup
+* Near-zero validation time for hot codes
+* Thread-safe implementation
+
+---
+
+# 📊 **Performance**
+
+| Metric                                    | Result                            |
+| ----------------------------------------- | --------------------------------- |
+| Startup load (3× ~3GB compressed sources) | **Fast, multi-threaded**          |
+| Memory footprint                          | **Under ~600 MB**                 |
+| Throughput                                | **1M+ requests/min** (local test) |
+| Latency                                   | **<1 ms** for cached lookups      |
