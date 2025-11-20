@@ -1,0 +1,4 @@
+Place files here or pass path abs when running the server:
+couponbase1.gz
+couponbase2.gz
+couponbase3.gz
